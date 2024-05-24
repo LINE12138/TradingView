@@ -1,5 +1,5 @@
 //@version=4
-study("Supertrend", overlay = true)
+study("Supertrend", overlay = true, format=format.price, precision=2, resolution="")
 
 Periods = input(title="ATR Period", type=input.integer, defval=10)
 src = input(hl2, title="Source")
