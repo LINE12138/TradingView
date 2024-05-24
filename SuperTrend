@@ -1,37 +1,158 @@
-//@version=4
-study("Supertrend", overlay = true, format=format.price, precision=2, resolution="")
+//@version=5
+indicator(title="EMA and SMA with Smoothing", shorttitle="EMA and SMA Smooth", overlay=true, timeframe="", timeframe_gaps=true)
 
-Periods = input(title="ATR Period", type=input.integer, defval=10)
-src = input(hl2, title="Source")
-Multiplier = input(title="ATR Multiplier", type=input.float, step=0.1, defval=3.0)
-changeATR= input(title="Change ATR Calculation Method ?", type=input.bool, defval=true)
-showsignals = input(title="Show Buy/Sell Signals ?", type=input.bool, defval=true)
-highlighting = input(title="Highlighter On/Off ?", type=input.bool, defval=true)
-atr2 = sma(tr, Periods)
-atr= changeATR ? atr(Periods) : atr2
-up=src-(Multiplier*atr)
-up1 = nz(up[1],up)
-up := close[1] > up1 ? max(up,up1) : up
-dn=src+(Multiplier*atr)
-dn1 = nz(dn[1], dn)
-dn := close[1] < dn1 ? min(dn, dn1) : dn
-trend = 1
-trend := nz(trend[1], trend)
-trend := trend == -1 and close > dn1 ? 1 : trend == 1 and close < up1 ? -1 : trend
-upPlot = plot(trend == 1 ? up : na, title="Up Trend", style=plot.style_linebr, linewidth=2, color=color.green)
-buySignal = trend == 1 and trend[1] == -1
-plotshape(buySignal ? up : na, title="UpTrend Begins", location=location.absolute, style=shape.circle, size=size.tiny, color=color.green, transp=0)
-plotshape(buySignal and showsignals ? up : na, title="Buy", text="Buy", location=location.absolute, style=shape.labelup, size=size.tiny, color=color.green, textcolor=color.white, transp=0)
-dnPlot = plot(trend == 1 ? na : dn, title="Down Trend", style=plot.style_linebr, linewidth=2, color=color.red)
-sellSignal = trend == -1 and trend[1] == 1
-plotshape(sellSignal ? dn : na, title="DownTrend Begins", location=location.absolute, style=shape.circle, size=size.tiny, color=color.red, transp=0)
-plotshape(sellSignal and showsignals ? dn : na, title="Sell", text="Sell", location=location.absolute, style=shape.labeldown, size=size.tiny, color=color.red, textcolor=color.white, transp=0)
-mPlot = plot(ohlc4, title="", style=plot.style_circles, linewidth=0)
-longFillColor = highlighting ? (trend == 1 ? color.green : color.white) : color.white
-shortFillColor = highlighting ? (trend == -1 ? color.red : color.white) : color.white
-fill(mPlot, upPlot, title="UpTrend Highligter", color=longFillColor)
-fill(mPlot, dnPlot, title="DownTrend Highligter", color=shortFillColor)
-alertcondition(buySignal, title="SuperTrend Buy", message="SuperTrend Buy!")
-alertcondition(sellSignal, title="SuperTrend Sell", message="SuperTrend Sell!")
-changeCond = trend != trend[1]
-alertcondition(changeCond, title="SuperTrend Direction Change", message="SuperTrend has changed direction!")
+// Inputs for EMA
+lenEMA1 = input.int(20, minval=1, title="EMA 1 Length")
+lenEMA2 = input.int(20, minval=1, title="EMA 2 Length")
+lenEMA3 = input.int(50, minval=1, title="EMA 3 Length")
+lenEMA4 = input.int(50, minval=1, title="EMA 4 Length")
+lenEMA5 = input.int(50, minval=1, title="EMA 5 Length")
+lenEMA6 = input.int(50, minval=1, title="EMA 6 Length")
+lenEMA7 = input.int(20, minval=1, title="EMA 7 Length")
+lenEMA8 = input.int(20, minval=1, title="EMA 8 Length")
+lenEMA9 = input.int(50, minval=1, title="EMA 9 Length")
+lenEMA10 = input.int(50, minval=1, title="EMA 10 Length")
+
+// Inputs for SMA
+lenSMA1 = input.int(9, minval=1, title="SMA 1 Length")
+lenSMA2 = input.int(20, minval=1, title="SMA 2 Length")
+lenSMA3 = input.int(20, minval=1, title="SMA 3 Length")
+lenSMA4 = input.int(9, minval=1, title="SMA 4 Length")
+lenSMA5 = input.int(20, minval=1, title="SMA 5 Length")
+lenSMA6 = input.int(20, minval=1, title="SMA 6 Length")
+lenSMA7 = input.int(9, minval=1, title="SMA 7 Length")
+lenSMA8 = input.int(20, minval=1, title="SMA 8 Length")
+lenSMA9 = input.int(20, minval=1, title="SMA 9 Length")
+lenSMA10 = input.int(20, minval=1, title="SMA 10 Length")
+
+// Common Inputs
+src = input(close, title="Source")
+offset = input.int(title="Offset", defval=0, minval=-500, maxval=500, display=display.data_window)
+
+// Calculate EMAs
+ema1 = ta.ema(src, lenEMA1)
+ema2 = ta.ema(src, lenEMA2)
+ema3 = ta.ema(src, lenEMA3)
+ema4 = ta.ema(src, lenEMA4)
+ema5 = ta.ema(src, lenEMA5)
+ema6 = ta.ema(src, lenEMA6)
+ema7 = ta.ema(src, lenEMA7)
+ema8 = ta.ema(src, lenEMA8)
+ema9 = ta.ema(src, lenEMA9)
+ema10 = ta.ema(src, lenEMA10)
+
+
+// Calculate SMAs
+sma1 = ta.sma(src, lenSMA1)
+sma2 = ta.sma(src, lenSMA2)
+sma3 = ta.sma(src, lenSMA3)
+sma4 = ta.sma(src, lenSMA4)
+sma5 = ta.sma(src, lenSMA5)
+sma6 = ta.sma(src, lenSMA6)
+sma7 = ta.sma(src, lenSMA7)
+sma8 = ta.sma(src, lenSMA8)
+sma9 = ta.sma(src, lenSMA9)
+sma10 = ta.sma(src, lenSM10)
+
+
+// Function for calculating different types of moving averages
+ma(source, length, type) =>
+    switch type
+        "SMA" => ta.sma(source, length)
+        "EMA" => ta.ema(source, length)
+        "SMMA (RMA)" => ta.rma(source, length)
+        "WMA" => ta.wma(source, length)
+        "VWMA" => ta.vwma(source, length)
+
+// Inputs for smoothing
+typeMA = input.string(title="Smoothing Method", defval="SMA", options=["SMA", "EMA", "SMMA (RMA)", "WMA", "VWMA"], group="Smoothing", display=display.data_window)
+smoothingLength = input.int(title="Smoothing Length", defval=5, minval=1, maxval=100, group="Smoothing", display=display.data_window)
+
+// Calculate smoothed EMA and SMA for all lines
+smoothedEMA1 = ma(ema1, smoothingLength, typeMA)
+smoothedEMA2 = ma(ema2, smoothingLength, typeMA)
+smoothedEMA3 = ma(ema3, smoothingLength, typeMA)
+smoothedEMA4 = ma(ema4, smoothingLength, typeMA)
+smoothedEMA5 = ma(ema5, smoothingLength, typeMA)
+smoothedEMA6 = ma(ema6, smoothingLength, typeMA)
+smoothedEMA7 = ma(ema7, smoothingLength, typeMA)
+smoothedEMA8 = ma(ema8, smoothingLength, typeMA)
+smoothedEMA9 = ma(ema9, smoothingLength, typeMA)
+smoothedEMA10 = ma(ema10, smoothingLength, typeMA)
+
+
+smoothedSMA1 = ma(sma1, smoothingLength, typeMA)
+smoothedSMA2 = ma(sma2, smoothingLength, typeMA)
+smoothedSMA3 = ma(sma3, smoothingLength, typeMA)
+smoothedSMA4 = ma(sma4, smoothingLength, typeMA)
+smoothedSMA5 = ma(sma5, smoothingLength, typeMA)
+smoothedSMA6 = ma(sma6, smoothingLength, typeMA)
+smoothedSMA7 = ma(sma7, smoothingLength, typeMA)
+smoothedSMA8 = ma(sma8, smoothingLength, typeMA)
+smoothedSMA9 = ma(sma9, smoothingLength, typeMA)
+smoothedSMA10 = ma(sma10, smoothingLength, typeMA)
+
+
+// Plot EMA, SMA, and their smoothed lines
+plot(ema1, color=color.blue, title="EMA 1", offset=offset)
+plot(smoothedEMA1, color=color.red, title="Smoothed EMA 1", offset=offset)
+
+plot(ema2, color=color.green, title="EMA 2", offset=offset)
+plot(smoothedEMA2, color=color.orange, title="Smoothed EMA 2", offset=offset)
+
+plot(ema3, color=color.purple, title="EMA 3", offset=offset)
+plot(smoothedEMA3, color=color.fuchsia, title="Smoothed EMA 3", offset=offset)
+
+plot(ema4, color=color.blue, title="EMA 4", offset=offset)
+plot(smoothedEMA4, color=color.red, title="Smoothed EMA 4", offset=offset)
+
+plot(ema5, color=color.green, title="EMA 5", offset=offset)
+plot(smoothedEMA5, color=color.orange, title="Smoothed EMA 5", offset=offset)
+
+plot(ema6, color=color.purple, title="EMA 6", offset=offset)
+plot(smoothedEMA6, color=color.fuchsia, title="Smoothed EMA 6", offset=offset)
+
+plot(ema7, color=color.blue, title="EMA 7", offset=offset)
+plot(smoothedEMA7, color=color.red, title="Smoothed EMA 7", offset=offset)
+
+plot(ema8, color=color.green, title="EMA 8", offset=offset)
+plot(smoothedEMA8, color=color.orange, title="Smoothed EMA 8", offset=offset)
+
+plot(ema9, color=color.purple, title="EMA 9", offset=offset)
+plot(smoothedEMA9, color=color.fuchsia, title="Smoothed EMA 9", offset=offset)
+
+plot(ema10, color=color.blue, title="EMA 10", offset=offset)
+plot(smoothedEMA10, color=color.red, title="Smoothed EMA 10", offset=offset)
+
+
+plot(sma1, color=color.black, title="SMA 1", offset=offset)
+plot(smoothedSMA1, color=color.gray, title="Smoothed SMA 1", offset=offset)
+
+plot(sma2, color=color.olive, title="SMA 2", offset=offset)
+plot(smoothedSMA2, color=color.lime, title="Smoothed SMA 2", offset=offset)
+
+plot(sma3, color=color.olive, title="SMA 3", offset=offset)
+plot(smoothedSMA3, color=color.lime, title="Smoothed SMA 3", offset=offset)
+
+plot(sma4, color=color.black, title="SMA 4", offset=offset)
+plot(smoothedSMA4, color=color.gray, title="Smoothed SMA 4", offset=offset)
+
+plot(sma5, color=color.olive, title="SMA 5", offset=offset)
+plot(smoothedSMA5, color=color.lime, title="Smoothed SMA 5", offset=offset)
+
+plot(sma6, color=color.olive, title="SMA 6", offset=offset)
+plot(smoothedSMA6, color=color.lime, title="Smoothed SMA 6", offset=offset)
+
+plot(sma7, color=color.black, title="SMA 7", offset=offset)
+plot(smoothedSMA7, color=color.gray, title="Smoothed SMA 7", offset=offset)
+
+plot(sma8, color=color.olive, title="SMA 8", offset=offset)
+plot(smoothedSMA8, color=color.lime, title="Smoothed SMA 8", offset=offset)
+
+plot(sma9, color=color.olive, title="SMA 9", offset=offset)
+plot(smoothedSMA9, color=color.lime, title="Smoothed SMA 9", offset=offset)
+
+plot(sma10, color=color.black, title="SMA 10", offset=offset)
+plot(smoothedSMA10, color=color.gray, title="Smoothed SMA 10", offset=offset)
+
+// 代码若有不完善之处，多多指出
