@@ -1,0 +1,38 @@
+//@version=5
+indicator(title="7 Level EMA", shorttitle="7 EMA", overlay=true)
+
+// 定义 EMA 周期
+emaLengthSuperLong = 200
+emaLengthLong = 100
+emaLengthMediumLong = 50
+emaLengthMedium = 20
+emaLengthMediumShort = 10
+emaLengthShort = 5
+emaLengthSuperShort = 3
+
+// 计算 EMA
+emaSuperLong = ta.ema(close, emaLengthSuperLong)
+emaLong = ta.ema(close, emaLengthLong)
+emaMediumLong = ta.ema(close, emaLengthMediumLong)
+emaMedium = ta.ema(close, emaLengthMedium)
+emaMediumShort = ta.ema(close, emaLengthMediumShort)
+emaShort = ta.ema(close, emaLengthShort)
+emaSuperShort = ta.ema(close, emaLengthSuperShort)
+
+// 设置颜色
+colorSuperLong = #FF0000
+colorLong = #FF8000
+colorMediumLong = #FFFF00
+colorMedium = #00FF00
+colorMediumShort = #00FFFF
+colorShort = #0000FF
+colorSuperShort = #800080
+
+// 绘制 EMA
+plot(emaSuperLong, color=colorSuperLong, linewidth=2, title="超长期均线")
+plot(emaLong, color=colorLong, linewidth=2, title="长期均线")
+plot(emaMediumLong, color=colorMediumLong, linewidth=2, title="中长期均线")
+plot(emaMedium, color=colorMedium, linewidth=2, title="中期均线")
+plot(emaMediumShort, color=colorMediumShort, linewidth=2, title="中短期均线")
+plot(emaShort, color=colorShort, linewidth=2, title="短期均线")
+plot(emaSuperShort, color=colorSuperShort, linewidth=2, title="超短期均线")
