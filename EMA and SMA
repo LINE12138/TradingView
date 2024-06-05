@@ -1,0 +1,37 @@
+//@version=5
+indicator(title="EMA and SMA with Smoothing", shorttitle="EMA&SMA Smooth", overlay=true, timeframe="", timeframe_gaps=true)
+
+// Inputs for both EMA and SMA
+lenEMA = input.int(9, minval=1, title="EMA Length")
+lenSMA = input.int(20, minval=1, title="SMA Length")
+src = input(close, title="Source")
+offset = input.int(title="Offset", defval=0, minval=-500, maxval=500, display = display.data_window)
+
+// Calculate EMA and SMA
+ema = ta.ema(src, lenEMA)
+sma = ta.sma(src, lenSMA)
+
+// Function to calculate different moving averages
+ma(source, length, type) =>
+    switch type
+        "SMA" => ta.sma(source, length)
+        "EMA" => ta.ema(source, length)
+        "SMMA (RMA)" => ta.rma(source, length)
+        "WMA" => ta.wma(source, length)
+        "VWMA" => ta.vwma(source, length)
+
+// Inputs for smoothing lines
+smoothingTypeEMA = input.string(title="EMA Smoothing Method", defval="SMA", options=["SMA", "EMA", "SMMA (RMA)", "WMA", "VWMA"], group="Smoothing", display = display.data_window)
+smoothingLengthEMA = input.int(title="EMA Smoothing Length", defval=5, minval=1, maxval=100, group="Smoothing", display = display.data_window)
+smoothingTypeSMA = input.string(title="SMA Smoothing Method", defval="SMA", options=["SMA", "EMA", "SMMA (RMA)", "WMA", "VWMA"], group="Smoothing", display = display.data_window)
+smoothingLengthSMA = input.int(title="SMA Smoothing Length", defval=5, minval=1, maxval=100, group="Smoothing", display = display.data_window)
+
+// Calculate smoothing lines
+smoothingLineEMA = ma(ema, smoothingLengthEMA, smoothingTypeEMA)
+smoothingLineSMA = ma(sma, smoothingLengthSMA, smoothingTypeSMA)
+
+// Plot EMA, SMA, and their smoothing lines
+plot(ema, color=color.blue, title="EMA", offset=offset)
+plot(smoothingLineEMA, title="EMA Smoothing", color=color.red, linewidth=2, offset=offset)
+plot(sma, color=color.green, title="SMA", offset=offset)
+plot(smoothingLineSMA, title="SMA Smoothing", color=color.orange, linewidth=2, offset=offset)
