@@ -2,7 +2,7 @@
 // © LuxAlgo
 
 //@version=5
-indicator('Smart Money Concepts [LuxAlgo]', 'LuxAlgo - Smart Money Concepts', overlay = true, max_labels_count = 500, max_lines_count = 500, max_boxes_count = 500)
+indicator('Smart Money Concepts [LuxAlgo]', 'SMC指标 - 聪明钱概念', overlay = true, max_labels_count = 500, max_lines_count = 500, max_boxes_count = 500)
 //---------------------------------------------------------------------------------------------------------------------}
 //CONSTANTS & STRINGS & INPUTS
 //---------------------------------------------------------------------------------------------------------------------{
@@ -83,7 +83,7 @@ internalBullColorInput          = input(        GREEN,      '',                 
 showInternalBearInput           = input.string( ALL,        '看跌结构' ,       group = INTERNAL_GROUP, inline = 'ibear', options = [ALL,BOS,CHOCH])
 internalBearColorInput          = input(        RED,        '',                         group = INTERNAL_GROUP, inline = 'ibear')
 internalFilterConfluenceInput   = input(        false,      '汇合过滤器',        group = INTERNAL_GROUP, tooltip = internalFilterConfluenceTooltip)
-internalStructureSize           = input.string( TINY,       '字体尺寸',      group = INTERNAL_GROUP, options = [TINY,SMALL,NORMAL])
+internalStructureSize           = input.string( SMALL,       '字体尺寸',      group = INTERNAL_GROUP, options = [TINY,SMALL,NORMAL])
 
 showStructureInput              = input(        true,       '展示外部结构',     group = SWING_GROUP,    tooltip = showStructureTooltip)
 showSwingBullInput              = input.string( ALL,        '看涨结构',        group = SWING_GROUP,    inline = 'bull',    options = [ALL,BOS,CHOCH])
@@ -109,7 +109,7 @@ swingBearishOrderBlockColor     = input.color(color.new(#b22833, 80), '外部看
 showEqualHighsLowsInput         = input(        true,       '等高点/等低点',           group = EQUAL_GROUP,    tooltip = showEqualHighsLowsTooltip)
 equalHighsLowsLengthInput       = input.int(    3,          'K线蜡烛图数量',        group = EQUAL_GROUP,    tooltip = equalHighsLowsLengthTooltip,      minval = 1)
 equalHighsLowsThresholdInput    = input.float(  0.1,        '阈值',                group = EQUAL_GROUP,    tooltip = equalHighsLowsThresholdTooltip,   minval = 0, maxval = 0.5, step = 0.1)
-equalHighsLowsSizeInput         = input.string( TINY,       '字体尺寸',               group = EQUAL_GROUP,    options = [TINY,SMALL,NORMAL])
+equalHighsLowsSizeInput         = input.string( SMALL,       '字体尺寸',               group = EQUAL_GROUP,    options = [TINY,SMALL,NORMAL])
 
 showFairValueGapsInput          = input(        false,      '公允价值缺口',          group = GAPS_GROUP,     tooltip = showFairValueGapsTooltip)
 fairValueGapsThresholdInput     = input(        true,       '自动阈值',           group = GAPS_GROUP,     tooltip = fairValueGapsThresholdTooltip)
