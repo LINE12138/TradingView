@@ -432,7 +432,7 @@ getCurrentStructure(int size,bool equalHighLow = false, bool internal = false) =
                 trailing.lastBottomTime := p_ivot.barTime
 
             if showSwingsInput and not internal and not equalHighLow
-                drawLabel(time[size], p_ivot.currentLevel, p_ivot.currentLevel < p_ivot.lastLevel ? 'LL' : 'HL', swingBullishColor, label.style_label_up)            
+                drawLabel(time[size], p_ivot.currentLevel, p_ivot.currentLevel < p_ivot.lastLevel ? '下跌趋势创新低低点' : '上升趋势创新高低点', swingBullishColor, label.style_label_up)            
         else
             pivot p_ivot = equalHighLow ? equalHigh : internal ? internalHigh : swingHigh
 
@@ -452,7 +452,7 @@ getCurrentStructure(int size,bool equalHighLow = false, bool internal = false) =
                 trailing.lastTopTime    := p_ivot.barTime
 
             if showSwingsInput and not internal and not equalHighLow
-                drawLabel(time[size], p_ivot.currentLevel, p_ivot.currentLevel > p_ivot.lastLevel ? 'HH' : 'LH', swingBearishColor, label.style_label_down)
+                drawLabel(time[size], p_ivot.currentLevel, p_ivot.currentLevel > p_ivot.lastLevel ? '上升趋势创新高高点' : '下跌趋势创新低高点', swingBearishColor, label.style_label_down)
                 
 // @function                draw line and label representing a structure
 // @param p_ivot            base pivot point
