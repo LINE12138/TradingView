@@ -384,12 +384,12 @@ drawLabel(int labelTime, float labelPrice, string tag, color labelColor, string 
 drawEqualHighLow(pivot p_ivot, float level, int size, bool equalHigh) =>
     equalDisplay e_qualDisplay = equalHigh ? equalHighDisplay : equalLowDisplay
     
-    string tag          = 'EQL'
+    string tag          = '等低点'
     color equalColor    = swingBullishColor
     string labelStyle   = label.style_label_up
 
     if equalHigh
-        tag         := 'EQH'
+        tag         := '等高点'
         equalColor  := swingBearishColor
         labelStyle  := label.style_label_down
 
