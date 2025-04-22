@@ -1,0 +1,79 @@
+//@version=6
+indicator(title="Combined Commodity Channel Index", shorttitle="Combined CCI", format=format.price, precision=2, timeframe="", timeframe_gaps=true)
+
+// 第一份CCI指标代码
+length = input.int(20, minval=1, title="Length 1", group="CCI1 Inputs")
+src = input(hlc3, title="Source 1", group="CCI1 Inputs")
+ma = ta.sma(src, length)
+cci = (src - ma) / (0.015 * ta.dev(src, length))
+plot(cci, "CCI1", color=#FF6347) // 颜色改为橙色以作区分
+band1 = hline(100, "Upper Band 1", color=#787B86, linestyle=hline.style_dashed)
+hline(0, "Middle Band 1", color=color.new(#787B86, 50))
+band0 = hline(-100, "Lower Band 1", color=#787B86, linestyle=hline.style_dashed)
+fill(band1, band0, color=color.rgb(255, 99, 71, 90), title="Background 1")
+
+// Smoothing MA inputs for CCI1
+GRP = "Smoothing 1"
+TT_BB = "Only applies when 'SMA + Bollinger Bands' is selected. Determines the distance between the SMA and the bands."
+maTypeInput = input.string("SMA", "Type 1", options = ["None", "SMA", "SMA + Bollinger Bands", "EMA", "SMMA (RMA)", "WMA", "VWMA"], group = GRP, display = display.data_window)
+maLengthInput = input.int(14, "Length 1", group = GRP, display = display.data_window)
+bbMultInput = input.float(2.0, "BB StdDev 1", minval = 0.001, maxval = 50, step = 0.5, tooltip = TT_BB, group = GRP, display = display.data_window)
+var enableMA = maTypeInput != "None"
+var isBB = maTypeInput == "SMA + Bollinger Bands"
+
+// Smoothing MA Calculation for CCI1
+ma(source, length, MAtype) =>
+    switch MAtype
+        "SMA"                   => ta.sma(source, length)
+        "SMA + Bollinger Bands" => ta.sma(source, length)
+        "EMA"                   => ta.ema(source, length)
+        "SMMA (RMA)"            => ta.rma(source, length)
+        "WMA"                   => ta.wma(source, length)
+        "VWMA"                  => ta.vwma(source, length)
+
+// Smoothing MA plots for CCI1
+smoothingMA = enableMA ? ma(cci, maLengthInput, maTypeInput) : na
+smoothingStDev = isBB ? ta.stdev(cci, maLengthInput) * bbMultInput : na
+plot(smoothingMA, "CCI1-based MA", color=color.yellow, display = enableMA ? display.all : display.none, editable = enableMA)
+bbUpperBand = plot(smoothingMA + smoothingStDev, title = "Upper Bollinger Band 1", color=color.green, display = isBB ? display.all : display.none, editable = isBB)
+bbLowerBand = plot(smoothingMA - smoothingStDev, title = "Lower Bollinger Band 1", color=color.green, display = isBB ? display.all : display.none, editable = isBB)
+fill(bbUpperBand, bbLowerBand, color= isBB ? color.new(color.green, 90) : na, title="Bollinger Bands Background Fill 1", display = isBB ? display.all : display.none, editable = isBB)
+
+// 第二份CCI指标代码
+length2 = input.int(20, minval=1, title="Length 2", group="CCI2 Inputs")
+src2 = input(hlc3, title="Source 2", group="CCI2 Inputs")
+ma2 = ta.sma(src2, length2)
+cci2 = (src2 - ma2) / (0.015 * ta.dev(src2, length2))
+plot(cci2, "CCI2", color=#2962FF)
+band1_2 = hline(100, "Upper Band 2", color=#787B86, linestyle=hline.style_dashed)
+hline(0, "Middle Band 2", color=color.new(#787B86, 50))
+band0_2 = hline(-100, "Lower Band 2", color=#787B86, linestyle=hline.style_dashed)
+fill(band1_2, band0_2, color=color.rgb(33, 150, 243, 90), title="Background 2")
+
+// Smoothing MA inputs for CCI2
+GRP2 = "Smoothing 2"
+TT_BB2 = "Only applies when 'SMA + Bollinger Bands' is selected. Determines the distance between the SMA and the bands."
+maTypeInput2 = input.string("SMA", "Type 2", options = ["None", "SMA", "SMA + Bollinger Bands", "EMA", "SMMA (RMA)", "WMA", "VWMA"], group = GRP2, display = display.data_window)
+maLengthInput2 = input.int(14, "Length 2", group = GRP2, display = display.data_window)
+bbMultInput2 = input.float(2.0, "BB StdDev 2", minval = 0.001, maxval = 50, step = 0.5, tooltip = TT_BB2, group = GRP2, display = display.data_window)
+var enableMA2 = maTypeInput2 != "None"
+var isBB2 = maTypeInput2 == "SMA + Bollinger Bands"
+
+// Smoothing MA Calculation for CCI2
+ma2(source, length, MAtype) =>
+    switch MAtype
+        "SMA"                   => ta.sma(source, length)
+        "SMA + Bollinger Bands" => ta.sma(source, length)
+        "EMA"                   => ta.ema(source, length)
+        "SMMA (RMA)"            => ta.rma(source, length)
+        "WMA"                   => ta.wma(source, length)
+        "VWMA"                  => ta.vwma(source, length)
+
+// Smoothing MA plots for CCI2
+smoothingMA2 = enableMA2 ? ma2(cci2, maLengthInput2, maTypeInput2) : na
+smoothingStDev2 = isBB2 ? ta.stdev(cci2, maLengthInput2) * bbMultInput2 : na
+plot(smoothingMA2, "CCI2-based MA", color=color.purple, display = enableMA2 ? display.all : display.none, editable = enableMA2)
+bbUpperBand2 = plot(smoothingMA2 + smoothingStDev2, title = "Upper Bollinger Band 2", color=color.orange, display = isBB2 ? display.all : display.none, editable = isBB2)
+bbLowerBand2 = plot(smoothingMA2 - smoothingStDev2, title = "Lower Bollinger Band 2", color=color.orange, display = isBB2 ? display.all : display.none, editable = isBB2)
+fill(bbUpperBand2, bbLowerBand2, color= isBB2 ? color.new(color.orange, 90) : na, title="Bollinger Bands Background Fill 2", display = isBB2 ? display.all : display.none, editable = isBB2)
+    
