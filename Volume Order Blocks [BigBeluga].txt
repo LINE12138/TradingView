@@ -3,7 +3,7 @@
 // © BigBeluga
 
 //@version=6
-indicator("Volume Order Blocks [BigBeluga]", overlay = true
+indicator(title="成交量大额机构订单块 [指数移动平均线]", shorttitle="成交量订单块 [指数移动平均线]", overlay = true
              , max_lines_count = 500, max_labels_count = 500, max_bars_back = 5000)
 
 // UDT  ―――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――{
@@ -26,10 +26,10 @@ type draw
 
 // ＩＮＰＵＴＳ ――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――{
 
-int  length1 = input.int(5, "Sensitivity Detection: ")
+int  length1 = input.int(5, "订单块数量", tooltip = "订单块的数量用于检测市场结构转换的灵敏程度, 默认值 = 5")
 int  length2 = length1 + 13
-bool mid_l  = input.bool(true, "Mid Line")
-bool trend_shadow = input.bool(true, "Trend Shadow")
+bool mid_l  = input.bool(true, "订单块中心线", tooltip = "订单块的中心线是市场趋势回调测试的边界，用于趋势走向的支撑")
+bool trend_shadow = input.bool(true, "订单块趋势带", tooltip = "订单块的趋势带是市场趋势变化方向的指针，用于趋势走向的指南")
 color col1   = input.color(#26ba9f, "", inline = "col")
 color col2   = input.color(#6626ba, "", inline = "col")
 // }
