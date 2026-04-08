@@ -31,3 +31,59 @@ plot(signal, "Signal line", #ff6d00)
 // Create alert conditions.
 alertcondition(hist[1] >= 0 and hist < 0, "Rising to falling", "MACD histogram switched from a rising to falling state")
 alertcondition(hist[1] <= 0 and hist > 0, "Falling to rising", "MACD histogram switched from a falling to rising state")
+
+// 第二份完全相同的MACD设置
+float  sourceInput2  = input.source(close, "Source2")
+int    fastLenInput2 = input.int(12, "Fast length2",   1)
+int    slowLenInput2 = input.int(26, "Slow length2",   1)
+int    sigLenInput2  = input.int(9,  "Signal length2", 1)
+string oscTypeInput2 = input.string("EMA", "Oscillator MA type2", ["EMA", "SMA"], display = display.none)
+string sigTypeInput2 = input.string("EMA", "Signal MA type2",     ["EMA", "SMA"], display = display.none)
+
+ma2(float source, int length, simple string maType) =>
+    switch maType
+        "EMA" => ta.ema(source, length)
+        "SMA" => ta.sma(source, length)
+
+float maFast2 = ma2(sourceInput2, fastLenInput2, oscTypeInput2)
+float maSlow2 = ma2(sourceInput2, slowLenInput2, oscTypeInput2)
+float macd2   = maFast2 - maSlow2
+float signal2 = ma2(macd2, sigLenInput2, sigTypeInput2)
+float hist2   = macd2 - signal2
+color hColor2 = hist2 >= 0 ? hist2 > hist2[1] ? #26a69a : #b2dfdb : hist2 > hist2[1] ? #ffcdd2 : #ff5252
+
+hline(0, "Zero2", #787b8680)
+plot(hist2, "Histogram2", hColor2, style = plot.style_columns)
+plot(macd2, "MACD2")
+plot(signal2, "Signal line2", #ff6d00)
+
+alertcondition(hist2[1] >= 0 and hist2 < 0, "Rising to falling2", "MACD histogram switched from a rising to falling state2")
+alertcondition(hist2[1] <= 0 and hist2 > 0, "Falling to rising2", "MACD histogram switched from a falling to rising state2")
+
+// 第三份完全相同的MACD设置
+float  sourceInput3  = input.source(close, "Source3")
+int    fastLenInput3 = input.int(12, "Fast length3",   1)
+int    slowLenInput3 = input.int(26, "Slow length3",   1)
+int    sigLenInput3  = input.int(9,  "Signal length3", 1)
+string oscTypeInput3 = input.string("EMA", "Oscillator MA type3", ["EMA", "SMA"], display = display.none)
+string sigTypeInput3 = input.string("EMA", "Signal MA type3",     ["EMA", "SMA"], display = display.none)
+
+ma3(float source, int length, simple string maType) =>
+    switch maType
+        "EMA" => ta.ema(source, length)
+        "SMA" => ta.sma(source, length)
+
+float maFast3 = ma(sourceInput3, fastLenInput3, oscTypeInput3)
+float maSlow3 = ma(sourceInput3, slowLenInput3, oscTypeInput3)
+float macd3   = maFast3 - maSlow3
+float signal3 = ma( macd3, sigLenInput3, sigTypeInput3)
+float hist3   = macd3 - signal3
+color hColor3 = hist3 >= 0 ? hist3 > hist3[1] ? #26a69a : #b2dfdb : hist3 > hist3[1] ? #ffcdd2 : #ff5252
+
+hline(0, "Zero3", #787b8680)
+plot(hist3, "Histogram3", hColor3, style = plot.style_columns)
+plot(macd3, "MACD3")
+plot(signal3, "Signal line3", #ff6d00)
+
+alertcondition(hist3[1] >= 0 and hist3 < 0, "Rising to falling3", "MACD histogram switched from a rising to falling state3")
+alertcondition(hist3[1] <= 0 and hist3 > 0, "Falling to rising3", "MACD histogram switched from a falling to rising state3")
