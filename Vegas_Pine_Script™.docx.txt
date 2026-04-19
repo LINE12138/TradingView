@@ -1,0 +1,244 @@
+﻿// This Pine Script™ code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © SpeculationLab
+
+
+//@version=5
+strategy("Vegas+ADX",pyramiding = 2)
+
+
+//--------------------------------------------------5EMA settings----------------------------------------------------
+//设置用户设定(set user input)
+group1="EMA1"
+group2="EMA2"
+group3="EMA3"
+group4="EMA4"
+group5="EMA5"
+
+
+enableEMA1=input.bool(false,"Disable EMA1",tooltip="禁用此条EMA",group=group1)
+enableEMA2=input.bool(false,"Disable EMA2",tooltip="禁用此条EMA",group=group2)
+enableEMA3=input.bool(false,"Disable EMA3",tooltip="禁用此条EMA",group=group3)
+enableEMA4=input.bool(false,"Disable EMA4",tooltip="禁用此条EMA",group=group4)
+enableEMA5=input.bool(false,"Disable EMA5",tooltip="禁用此条EMA",group=group5)
+
+
+Length1=input.int(12,"EMA Length 1",tooltip="请输入恰当的EMA长度",group=group1)
+Length2=input.int(144,"EMA Length 2",tooltip="请输入恰当的EMA长度",group=group2)
+Length3=input.int(169,"EMA Length 3",tooltip="请输入恰当的EMA长度",group=group3)
+Length4=input.int(576,"EMA Length 4",tooltip="请输入恰当的EMA长度",group=group4)
+Length5=input.int(676,"EMA Length 5",tooltip="请输入恰当的EMA长度",group=group5)
+
+
+
+
+//计算ema值（get ema values)
+
+
+emaValue1=ta.ema(close,Length1)
+if enableEMA1
+    emaValue1:= na
+
+
+emaValue2=ta.ema(close,Length2)
+if enableEMA2
+    emaValue2:= na
+
+
+emaValue3=ta.ema(close,Length3)
+if enableEMA3
+    emaValue3:= na
+
+
+emaValue4=ta.ema(close,Length4)
+if enableEMA4
+    emaValue4:= na
+
+
+emaValue5=ta.ema(close,Length5)
+if enableEMA5
+    emaValue5:= na
+
+
+//绘出（draw onto the chart)
+
+
+plot(emaValue1,"EMA1",color=color.yellow,force_overlay = true)
+plot(emaValue2,"EMA2",color=color.white,force_overlay = true)
+plot(emaValue3,"EMA3",color=color.white,force_overlay = true)
+plot(emaValue4,"EMA4",color=#fb406c,force_overlay = true)
+plot(emaValue5,"EMA5",color=#fb406c,force_overlay = true)
+
+
+//-----------------------------------------------------------adx settings----------------------------------------------------
+
+
+
+
+len = input(14, "Length")
+th = input(30, "Threshold")
+
+
+TrueRange = math.max(math.max(high-low, math.abs(high-nz(close[1]))), math.abs(low-nz(close[1])))
+DirectionalMovementPlus = ta.change(high) > ta.change(low) ? math.max(ta.change(high), 0) : 0
+DirectionalMovementMinus = ta.change(low) > ta.change(high) ? math.max(-ta.change(low), 0) : 0
+
+
+var SmoothedTrueRange = 0.0
+SmoothedTrueRange := nz(SmoothedTrueRange[1]) - (nz(SmoothedTrueRange[1])/len) + TrueRange
+
+
+var SmoothedDirectionalMovementPlus = 0.0
+SmoothedDirectionalMovementPlus := nz(SmoothedDirectionalMovementPlus[1]) - (nz(SmoothedDirectionalMovementPlus[1])/len) + DirectionalMovementPlus
+
+
+var SmoothedDirectionalMovementMinus = 0.0
+SmoothedDirectionalMovementMinus := nz(SmoothedDirectionalMovementMinus[1]) - (nz(SmoothedDirectionalMovementMinus[1])/len) + DirectionalMovementMinus
+
+
+DIPlus = SmoothedDirectionalMovementPlus / SmoothedTrueRange * 100
+DIMinus = SmoothedDirectionalMovementMinus / SmoothedTrueRange * 100
+DX = math.abs(DIPlus-DIMinus) / (DIPlus+DIMinus)*100
+ADX = ta.sma(DX, len)
+
+
+
+
+plot(ADX, color=color.aqua, title="ADX")
+hline(th, "Threshold", color=color.white)
+
+
+//----------------------------------------------------------STRATEGY settings---------------------------------------------------------
+
+
+//vegas过滤器
+vegasLong= math.min(emaValue2,emaValue3)>math.max(emaValue4,emaValue5)
+//vegasLong=emaValue1>emaValue2 and emaValue1>emaValue3 and emaValue2>emaValue4 and emaValue2>emaValue5 and emaValue3>emaValue4 and emaValue3>emaValue5
+vegasShort= math.max(emaValue2,emaValue3)<math.min(emaValue4,emaValue5)
+//vegasShort=emaValue1<emaValue2 and emaValue1<emaValue3 and emaValue2<emaValue4 and emaValue2<emaValue5 and emaValue3<emaValue4 and emaValue3<emaValue5
+
+
+//蜡烛过滤器
+lowDis=math.abs(low-math.max(emaValue2,emaValue3))
+highDis=math.abs(math.min(emaValue2,emaValue3)-high)
+baseDis=math.abs(emaValue2-emaValue3)
+longCandle= lowDis<=baseDis
+shortCandle=highDis<=baseDis
+
+
+//设置储存变量
+var float t_target=na
+var float t_stop=na
+var longTrade=0
+var shortTrade=0
+
+
+//设置买入卖出信号
+longSignal=vegasLong and longCandle and longTrade<=1 and not longCandle[1] and ADX>th
+shortSignal=vegasShort and shortCandle and shortTrade<=1 and not shortCandle[1] and ADX>th
+
+
+//设置止损点位
+rr=input.float(1,"Risk Reward",tooltip="改变风险回报比")
+longStop=ta.lowest(low,30)
+shortStop=ta.highest(high,30)
+longDistance=close-longStop
+shortDistance=shortStop-close
+longTarget=close+(longDistance*rr)
+shortTarget=close-(shortDistance*rr)
+
+
+
+
+//设置入场条件
+rpt=input.float(1,"Risk Per Trade%",tooltip = "设定单笔交易风险（%)")
+
+
+if longSignal and barstate.isconfirmed 
+    t_stop:=longStop
+    t_target:=longTarget
+    longTrade+=1
+    shortTrade:=0
+    positionSize = math.floor((strategy.equity * (rpt/100)) / (close - t_stop))
+    strategy.entry(id="Long",direction = strategy.long,qty=positionSize)
+   
+
+
+if shortSignal and barstate.isconfirmed 
+    t_stop:=shortStop
+    t_target:=shortTarget
+    longTrade:=0
+    shortTrade+=1
+    positionSize = math.floor((strategy.equity * (rpt/100)) / (t_stop - close))
+    strategy.entry(id="Short",direction=strategy.short,qty=positionSize)
+
+
+//设置出场条件
+
+
+if strategy.position_size>0  
+    strategy.exit("Long Exit","Long",limit=t_target,stop=t_stop)
+if strategy.position_size<0 
+    strategy.exit("Short Exit","Short",limit=t_target,stop=t_stop)
+
+
+plotshape(longSignal,"Long Signal",shape.triangleup,location.abovebar,color.green,force_overlay=true)
+plotshape(shortSignal,"Short Signal",shape.triangleup,location.abovebar,color.red,force_overlay=true)
+plot(strategy.position_size!=0? t_stop:na, style=plot.style_linebr,force_overlay=true,color=color.red)
+plot(strategy.position_size!=0? t_target:na, style=plot.style_linebr,force_overlay=true,color=color.green)
+
+
+//--------------------------------------------------------------------绘出表格------------------------------------------------------
+
+
+drawTable=input.bool(true,"Draw Table",tooltip="绘出表格")
+
+
+var balance=strategy.initial_capital
+var drawdown=0.0
+var maxdd=0.0
+var maxbalance=0.0
+var totalpips=0.0
+
+
+if strategy.wintrades!=strategy.wintrades[1]
+    balance+=rpt/100*balance*rr
+    if balance>maxbalance
+        maxbalance:=balance
+
+
+if strategy.losstrades!=strategy.losstrades[1]
+    balance-=rpt/100*balance
+    drawdown:=balance/maxbalance-1
+    if drawdown<maxdd
+        maxdd:=drawdown
+
+
+total=strategy.closedtrades
+wintrades=strategy.wintrades
+winrates=strategy.wintrades/strategy.closedtrades*100
+start=strategy.initial_capital
+end=balance
+returnvalue=balance-start
+rerurnrates=returnvalue/start*100
+mddvalue=maxdd*100
+
+
+
+
+var table backtesttable=table.new(position.top_right,5,2,border_width = 1)
+fillcell(_table,_column,_row,_title,_value,_bgcolor,_txtcolor)=>
+    _celltext=_title+"\n"+_value
+    table.cell(_table,_column,_row,_celltext,bgcolor=_bgcolor,text_color=_txtcolor)
+
+
+var bgcolor=color.black
+if barstate.islastconfirmedhistory
+    if drawTable
+        fillcell(backtesttable,0,0,"Total Trades",str.tostring(strategy.closedtrades),bgcolor,color.white)
+        fillcell(backtesttable,0,1,"Win Trades",str.tostring(strategy.wintrades),bgcolor,color.white)
+        fillcell(backtesttable,1,0,"Win Rate",str.tostring(math.round(winrates,2))+"%",bgcolor,color.white)
+        fillcell(backtesttable,1,1,"Strat Balance",str.tostring(start),bgcolor,color.white)
+        fillcell(backtesttable,2,1,"End Balance",str.tostring(math.round(end,2)),bgcolor,color.white)
+        fillcell(backtesttable,2,0,"Return",str.tostring(math.round(returnvalue,2)),bgcolor,returnvalue>0?color.rgb(96,195,215):color.rgb(218,79,122))
+        fillcell(backtesttable,3,0,"Return Rates",str.tostring(math.round(rerurnrates,2))+"%",returnvalue>0?color.rgb(96,195,215):color.rgb(218,79,122),color.white)
+        fillcell(backtesttable,3,1,"Max Drawdown",str.tostring(math.round(mddvalue,2))+"%",color.rgb(218,79,122),color.white)
