@@ -1,0 +1,468 @@
+//@version=6
+indicator("多时间框架交易信号指标-趋势增强版", shorttitle="MTF Trend Pro", overlay=true)
+
+// ═══════════════════════════════════════════════════════════════════════════════════
+// 输入参数
+// ═══════════════════════════════════════════════════════════════════════════════════
+
+// EMA 参数
+ema1_length = input.int(9, "EMA 1 周期", minval=1, group="EMA 设置")
+ema2_length = input.int(21, "EMA 2 周期", minval=1, group="EMA 设置")
+ema3_length = input.int(50, "EMA 3 周期", minval=1, group="EMA 设置")
+
+// RSI 参数
+rsi_length = input.int(14, "RSI 周期", minval=1, group="RSI 设置")
+rsi_ob = input.int(70, "RSI 超买线", minval=50, maxval=100, group="RSI 设置")
+rsi_os = input.int(30, "RSI 超卖线", minval=0, maxval=50, group="RSI 设置")
+
+// ADX 参数
+adx_length = input.int(14, "ADX 周期", minval=1, group="趋势强度设置")
+adx_threshold = input.int(25, "ADX 趋势阈值", minval=15, maxval=50, group="趋势强度设置")
+adx_trend_reset = input.int(20, "趋势重置ADX阈值", minval=15, maxval=25, group="趋势强度设置")
+
+// 价格结构参数
+structure_length = input.int(20, "价格结构周期", minval=10, maxval=50, group="价格结构设置")
+
+// 成交量参数
+vol_length = input.int(20, "成交量MA周期", minval=1, group="成交量设置")
+
+// 信号强度阈值
+signal_strength = input.float(4.0, "信号强度阈值", minval=1.0, maxval=11.0, group="信号设置")
+
+// ATR止损止盈参数
+atr_length = input.int(14, "ATR周期", minval=1, group="ATR止损止盈设置")
+atr_multiplier_sl = input.float(1.0, "止损ATR倍率", minval=0.5, maxval=5.0, step=0.1, group="ATR止损止盈设置")
+atr_multiplier_tp = input.float(1.0, "止盈ATR倍率", minval=0.5, maxval=5.0, step=0.1, group="ATR止损止盈设置")
+show_atr_lines = input.bool(true, "显示止损止盈线", group="ATR止损止盈设置")
+
+// 权重设置
+enable_weight = input.bool(true, "启用智能权重", group="权重设置")
+show_weights = input.bool(true, "显示权重信息", group="权重设置")
+
+// 显示设置
+show_signals = input.bool(true, "显示买卖信号", group="显示设置")
+show_ema = input.bool(true, "显示EMA线", group="显示设置")
+show_trend = input.bool(true, "显示趋势强度", group="显示设置")
+
+// ═══════════════════════════════════════════════════════════════════════════════════
+// 计算指标
+// ═══════════════════════════════════════════════════════════════════════════════════
+
+// EMA 计算
+ema1 = ta.ema(close, ema1_length)
+ema2 = ta.ema(close, ema2_length)
+ema3 = ta.ema(close, ema3_length)
+
+// RSI 计算
+rsi = ta.rsi(close, rsi_length)
+
+// ADX 趋势强度计算
+[adx, di_plus, di_minus] = ta.dmi(adx_length, adx_length)
+trend_strength = adx >= adx_threshold
+bull_trend_power = di_plus > di_minus
+bear_trend_power = di_minus > di_plus
+
+// ATR 计算 - 使用您提供的代码逻辑
+ma_function(source, length) =>
+    ta.rma(source, length)  // 使用RMA作为默认平滑方法
+
+true_range = ta.tr(true)
+atr_value = ma_function(true_range, atr_length) * atr_multiplier_sl
+
+// 计算多头和空头止损线
+long_stop_loss = low - atr_value
+short_stop_loss = high + atr_value
+
+// EMA 排列状态
+ema_alignment_bull = ema1 > ema2 and ema2 > ema3
+ema_alignment_bear = ema1 < ema2 and ema2 < ema3
+
+// 价格结构分析
+price_high = ta.highest(high, structure_length)
+price_low = ta.lowest(low, structure_length)
+price_structure_bull = close > price_high * 0.98  // 接近近期高点
+price_structure_bear = close < price_low * 1.02   // 接近近期低点
+
+// 成交量计算 (保留计算但不显示)
+vol_ma = ta.sma(volume, vol_length)
+vol_ratio = volume / vol_ma
+volume_signal_bull = vol_ratio > 1.2
+volume_signal_bear = vol_ratio > 1.2
+
+// 价格位置
+price_above_ema1 = close > ema1
+price_above_ema2 = close > ema2
+price_above_ema3 = close > ema3
+
+// ═══════════════════════════════════════════════════════════════════════════════════
+// 智能权重系统
+// ═══════════════════════════════════════════════════════════════════════════════════
+
+// 定义时间框架权重 (基于重要性)
+weight_1m = 0.5   // 1分钟权重最低
+weight_5m = 0.7   // 5分钟
+weight_15m = 1.0  // 15分钟基准权重
+weight_30m = 1.2  // 30分钟
+weight_1h = 1.5   // 1小时
+weight_4h = 2.0   // 4小时
+weight_1d = 3.0   // 日线权重最高
+
+// 趋势确认权重
+trend_weight = 2.0  // 趋势确认重要性高
+
+// 成交量权重
+volume_weight = 1.5
+
+// ═══════════════════════════════════════════════════════════════════════════════════
+// 多时间框架信号计算
+// ═══════════════════════════════════════════════════════════════════════════════════
+
+// 获取多时间框架数据
+tf1m = timeframe.in_seconds("1") >= timeframe.in_seconds()
+tf5m = timeframe.in_seconds("5") >= timeframe.in_seconds()
+tf15m = timeframe.in_seconds("15") >= timeframe.in_seconds()
+tf30m = timeframe.in_seconds("30") >= timeframe.in_seconds()
+tf1h = timeframe.in_seconds("60") >= timeframe.in_seconds()
+tf4h = timeframe.in_seconds("240") >= timeframe.in_seconds()
+tf1d = timeframe.in_seconds("1D") >= timeframe.in_seconds()
+
+// 1分钟框架
+[ema1_1m, ema2_1m, rsi_1m] = request.security(syminfo.tickerid, "1", [ta.ema(close, ema1_length), ta.ema(close, ema2_length), ta.rsi(close, rsi_length)])
+bull_1m = close > ema1_1m and close > ema2_1m and rsi_1m < rsi_ob
+bear_1m = close < ema1_1m and close < ema2_1m and rsi_1m > rsi_os
+
+// 5分钟框架
+[ema1_5m, ema2_5m, rsi_5m] = request.security(syminfo.tickerid, "5", [ta.ema(close, ema1_length), ta.ema(close, ema2_length), ta.rsi(close, rsi_length)])
+bull_5m = close > ema1_5m and close > ema2_5m and rsi_5m < rsi_ob
+bear_5m = close < ema1_5m and close < ema2_5m and rsi_5m > rsi_os
+
+// 15分钟框架
+[ema1_15m, ema2_15m, rsi_15m] = request.security(syminfo.tickerid, "15", [ta.ema(close, ema1_length), ta.ema(close, ema2_length), ta.rsi(close, rsi_length)])
+bull_15m = close > ema1_15m and close > ema2_15m and rsi_15m < rsi_ob
+bear_15m = close < ema1_15m and close < ema2_15m and rsi_15m > rsi_os
+
+// 30分钟框架
+[ema1_30m, ema2_30m, rsi_30m] = request.security(syminfo.tickerid, "30", [ta.ema(close, ema1_length), ta.ema(close, ema2_length), ta.rsi(close, rsi_length)])
+bull_30m = close > ema1_30m and close > ema2_30m and rsi_30m < rsi_ob
+bear_30m = close < ema1_30m and close < ema2_30m and rsi_30m > rsi_os
+
+// 1小时框架
+[ema1_1h, ema2_1h, rsi_1h] = request.security(syminfo.tickerid, "60", [ta.ema(close, ema1_length), ta.ema(close, ema2_length), ta.rsi(close, rsi_length)])
+bull_1h = close > ema1_1h and close > ema2_1h and rsi_1h < rsi_ob
+bear_1h = close < ema1_1h and close < ema2_1h and rsi_1h > rsi_os
+
+// 4小时框架
+[ema1_4h, ema2_4h, rsi_4h] = request.security(syminfo.tickerid, "240", [ta.ema(close, ema1_length), ta.ema(close, ema2_length), ta.rsi(close, rsi_length)])
+bull_4h = close > ema1_4h and close > ema2_4h and rsi_4h < rsi_ob
+bear_4h = close < ema1_4h and close < ema2_4h and rsi_4h > rsi_os
+
+// 日线框架
+[ema1_1d, ema2_1d, rsi_1d] = request.security(syminfo.tickerid, "1D", [ta.ema(close, ema1_length), ta.ema(close, ema2_length), ta.rsi(close, rsi_length)])
+bull_1d = close > ema1_1d and close > ema2_1d and rsi_1d < rsi_ob
+bear_1d = close < ema1_1d and close < ema2_1d and rsi_1d > rsi_os
+
+// ═══════════════════════════════════════════════════════════════════════════════════
+// 多重趋势确认系统
+// ═══════════════════════════════════════════════════════════════════════════════════
+
+// 趋势确认信号
+trend_confirmation_bull = trend_strength and bull_trend_power and ema_alignment_bull and price_structure_bull
+trend_confirmation_bear = trend_strength and bear_trend_power and ema_alignment_bear and price_structure_bear
+
+// ═══════════════════════════════════════════════════════════════════════════════════
+// 持续趋势状态系统 - 新增
+// ═══════════════════════════════════════════════════════════════════════════════════
+
+// 定义持续趋势状态变量
+var int persistent_trend_state = 0  // 0:无趋势, 1:多头趋势, -1:空头趋势
+var bool trend_active = false
+
+// 更新持续趋势状态
+if trend_confirmation_bull
+    persistent_trend_state := 1
+    trend_active := true
+else if trend_confirmation_bear
+    persistent_trend_state := -1
+    trend_active := true
+
+// 当ADX小于阈值时重置趋势状态
+if trend_active and adx < adx_trend_reset
+    persistent_trend_state := 0
+    trend_active := false
+
+// 表格显示用的趋势状态
+table_trend_display = persistent_trend_state == 1 ? "涨" : persistent_trend_state == -1 ? "跌" : "无"
+table_trend_color = persistent_trend_state == 1 ? color.green : persistent_trend_state == -1 ? color.red : color.gray
+
+// ═══════════════════════════════════════════════════════════════════════════════════
+// 智能权重信号计算
+// ═══════════════════════════════════════════════════════════════════════════════════
+
+// 计算加权信号强度
+bull_weighted_signals = 0.0
+bear_weighted_signals = 0.0
+
+// 应用权重到每个时间框架信号
+bull_weighted_signals := bull_1m ? weight_1m : 0
+bull_weighted_signals := bull_weighted_signals + (bull_5m ? weight_5m : 0)
+bull_weighted_signals := bull_weighted_signals + (bull_15m ? weight_15m : 0)
+bull_weighted_signals := bull_weighted_signals + (bull_30m ? weight_30m : 0)
+bull_weighted_signals := bull_weighted_signals + (bull_1h ? weight_1h : 0)
+bull_weighted_signals := bull_weighted_signals + (bull_4h ? weight_4h : 0)
+bull_weighted_signals := bull_weighted_signals + (bull_1d ? weight_1d : 0)
+bull_weighted_signals := bull_weighted_signals + (trend_confirmation_bull ? trend_weight : 0)
+bull_weighted_signals := bull_weighted_signals + (volume_signal_bull ? volume_weight : 0)
+
+bear_weighted_signals := bear_1m ? weight_1m : 0
+bear_weighted_signals := bear_weighted_signals + (bear_5m ? weight_5m : 0)
+bear_weighted_signals := bear_weighted_signals + (bear_15m ? weight_15m : 0)
+bear_weighted_signals := bear_weighted_signals + (bear_30m ? weight_30m : 0)
+bear_weighted_signals := bear_weighted_signals + (bear_1h ? weight_1h : 0)
+bear_weighted_signals := bear_weighted_signals + (bear_4h ? weight_4h : 0)
+bear_weighted_signals := bear_weighted_signals + (bear_1d ? weight_1d : 0)
+bear_weighted_signals := bear_weighted_signals + (trend_confirmation_bear ? trend_weight : 0)
+bear_weighted_signals := bear_weighted_signals + (volume_signal_bear ? volume_weight : 0)
+
+// 保留原始等权重计算作为参考
+bull_raw_signals = (bull_1m ? 1 : 0) + (bull_5m ? 1 : 0) + (bull_15m ? 1 : 0) + (bull_30m ? 1 : 0) + (bull_1h ? 1 : 0) + (bull_4h ? 1 : 0) + (bull_1d ? 1 : 0) + (trend_confirmation_bull ? 1 : 0) + (volume_signal_bull ? 1 : 0)
+bear_raw_signals = (bear_1m ? 1 : 0) + (bear_5m ? 1 : 0) + (bear_15m ? 1 : 0) + (bear_30m ? 1 : 0) + (bear_1h ? 1 : 0) + (bear_4h ? 1 : 0) + (bear_1d ? 1 : 0) + (trend_confirmation_bear ? 1 : 0) + (volume_signal_bear ? 1 : 0)
+
+// 选择使用的信号系统
+final_bull_signals = enable_weight ? bull_weighted_signals : bull_raw_signals
+final_bear_signals = enable_weight ? bear_weighted_signals : bear_raw_signals
+
+// 强信号判断
+strong_buy = final_bull_signals >= signal_strength
+strong_sell = final_bear_signals >= signal_strength
+
+// ═══════════════════════════════════════════════════════════════════════════════════
+// 信号转换系统 - 简化版
+// ═══════════════════════════════════════════════════════════════════════════════════
+
+// 变量声明 - 只记录信号转换时的第一个信号
+var int last_signal_type = 0  // 0:无信号, 1:买入, -1:卖出
+var bool show_signal = false
+var int current_signal_bar = 0
+
+// 检测信号转换
+signal_changed = false
+if (last_signal_type <= 0 and strong_buy) or (last_signal_type >= 0 and strong_sell)
+    signal_changed := true
+    current_signal_bar := bar_index
+
+// 更新信号类型和显示标志
+if signal_changed
+    if strong_buy
+        last_signal_type := 1
+        show_signal := true
+    else if strong_sell
+        last_signal_type := -1
+        show_signal := true
+else
+    // 如果不是信号转换，不显示信号
+    show_signal := false
+
+// 计算实际显示的信号 - 只在信号转换时显示
+display_buy_signal = show_signals and show_signal and last_signal_type == 1
+display_sell_signal = show_signals and show_signal and last_signal_type == -1
+
+// ═══════════════════════════════════════════════════════════════════════════════════
+// ATR止损止盈系统 - 只在信号转换时计算
+// ═══════════════════════════════════════════════════════════════════════════════════
+
+// 记录信号转换时的第一个信号参数
+var float signal_entry_price = na
+var float signal_stop_loss = na
+var float signal_take_profit = na
+var bool signal_active = false
+var string current_signal_type = "none"
+
+// 只在信号转换时计算止损止盈
+if signal_changed
+    signal_active := true
+    signal_entry_price := close
+    
+    if strong_buy
+        current_signal_type := "buy"
+        // 多头止损：使用Low line进行止损
+        signal_stop_loss := long_stop_loss
+        // 多头止盈 = 收盘价 + (收盘价 - 止损价) × 止盈倍数
+        signal_take_profit := close + (close - long_stop_loss) * atr_multiplier_tp
+    else if strong_sell
+        current_signal_type := "sell"
+        // 空头止损：使用High line进行止损
+        signal_stop_loss := short_stop_loss
+        // 空头止盈 = 收盘价 - (止损价 - 收盘价) × 止盈倍数
+        signal_take_profit := close - (short_stop_loss - close) * atr_multiplier_tp
+
+// 当信号类型改变时重置
+if (current_signal_type == "buy" and strong_sell) or (current_signal_type == "sell" and strong_buy)
+    signal_active := false
+    current_signal_type := "none"
+    signal_stop_loss := na
+    signal_take_profit := na
+
+// 绘制止损止盈线
+plot(show_atr_lines and signal_active and current_signal_type == "buy" ? signal_stop_loss : na, "买入止损线", color=color.red, style=plot.style_linebr, linewidth=2)
+plot(show_atr_lines and signal_active and current_signal_type == "buy" ? signal_take_profit : na, "买入止盈线", color=color.green, style=plot.style_linebr, linewidth=2)
+plot(show_atr_lines and signal_active and current_signal_type == "sell" ? signal_stop_loss : na, "卖出止损线", color=color.red, style=plot.style_linebr, linewidth=2)
+plot(show_atr_lines and signal_active and current_signal_type == "sell" ? signal_take_profit : na, "卖出止盈线", color=color.green, style=plot.style_linebr, linewidth=2)
+
+// ═══════════════════════════════════════════════════════════════════════════════════
+// 绘制
+// ═══════════════════════════════════════════════════════════════════════════════════
+
+// 绘制EMA线
+plot(show_ema ? ema1 : na, "EMA 9", color=color.yellow, linewidth=1)
+plot(show_ema ? ema2 : na, "EMA 21", color=color.orange, linewidth=1)
+plot(show_ema ? ema3 : na, "EMA 50", color=color.purple, linewidth=2)
+
+// 绘制买卖信号 (只在信号转换时显示)
+plotshape(display_buy_signal, title="强买信号", location=location.belowbar, style=shape.labelup, 
+          size=size.normal, color=color.new(color.green, 0), textcolor=color.white, text="BUY")
+plotshape(display_sell_signal, title="强卖信号", location=location.abovebar, style=shape.labeldown, 
+          size=size.normal, color=color.new(color.red, 0), textcolor=color.white, text="SELL")
+
+// 绘制圆点信号 (保留原有的多时间框架信号点)
+plotchar(bull_1m or bull_5m or bull_15m or bull_30m or bull_1h or bull_4h or bull_1d, title="多空信号点", 
+         location=location.belowbar, color=color.green, char='•', size=size.tiny)
+plotchar(bear_1m or bear_5m or bear_15m or bear_30m or bear_1h or bear_4h or bear_1d, title="空头信号点", 
+         location=location.abovebar, color=color.red, char='•', size=size.tiny)
+
+// 绘制趋势强度指示
+plotshape(show_trend and trend_confirmation_bull, title="多头趋势确认", location=location.belowbar, 
+          style=shape.triangleup, color=color.new(color.green, 50), size=size.small)
+plotshape(show_trend and trend_confirmation_bear, title="空头趋势确认", location=location.abovebar, 
+          style=shape.triangledown, color=color.new(color.red, 50), size=size.small)
+
+// ═══════════════════════════════════════════════════════════════════════════════════
+// 信号强度标签
+// ═══════════════════════════════════════════════════════════════════════════════════
+
+if barstate.islast and show_signals
+    var table signal_table = table.new(position.top_right, 4, 15, bgcolor=color.new(color.black, 80), border_width=1)
+    table.cell(signal_table, 0, 0, "时间框架", text_color=color.white, bgcolor=color.new(color.gray, 50))
+    table.cell(signal_table, 1, 0, "信号", text_color=color.white, bgcolor=color.new(color.gray, 50))
+    table.cell(signal_table, 2, 0, "权重", text_color=color.white, bgcolor=color.new(color.gray, 50))
+    table.cell(signal_table, 3, 0, "ATR止损止盈", text_color=color.white, bgcolor=color.new(color.gray, 50))
+    
+    table.cell(signal_table, 0, 1, "1分钟", text_color=color.white)
+    table.cell(signal_table, 1, 1, bull_1m ? "买" : bear_1m ? "卖" : "中", 
+               text_color=bull_1m ? color.green : bear_1m ? color.red : color.gray)
+    table.cell(signal_table, 2, 1, str.tostring(weight_1m, "#.0"), text_color=color.yellow)
+    table.cell(signal_table, 3, 1, "", text_color=color.gray)
+    
+    table.cell(signal_table, 0, 2, "5分钟", text_color=color.white)
+    table.cell(signal_table, 1, 2, bull_5m ? "买" : bear_5m ? "卖" : "中", 
+               text_color=bull_5m ? color.green : bear_5m ? color.red : color.gray)
+    table.cell(signal_table, 2, 2, str.tostring(weight_5m, "#.0"), text_color=color.yellow)
+    table.cell(signal_table, 3, 2, "", text_color=color.gray)
+    
+    table.cell(signal_table, 0, 3, "15分钟", text_color=color.white)
+    table.cell(signal_table, 1, 3, bull_15m ? "买" : bear_15m ? "卖" : "中", 
+               text_color=bull_15m ? color.green : bear_15m ? color.red : color.gray)
+    table.cell(signal_table, 2, 3, str.tostring(weight_15m, "#.0"), text_color=color.yellow)
+    table.cell(signal_table, 3, 3, "", text_color=color.gray)
+    
+    table.cell(signal_table, 0, 4, "30分钟", text_color=color.white)
+    table.cell(signal_table, 1, 4, bull_30m ? "买" : bear_30m ? "卖" : "中", 
+               text_color=bull_30m ? color.green : bear_30m ? color.red : color.gray)
+    table.cell(signal_table, 2, 4, str.tostring(weight_30m, "#.0"), text_color=color.yellow)
+    table.cell(signal_table, 3, 4, "", text_color=color.gray)
+    
+    table.cell(signal_table, 0, 5, "1小时", text_color=color.white)
+    table.cell(signal_table, 1, 5, bull_1h ? "买" : bear_1h ? "卖" : "中", 
+               text_color=bull_1h ? color.green : bear_1h ? color.red : color.gray)
+    table.cell(signal_table, 2, 5, str.tostring(weight_1h, "#.0"), text_color=color.yellow)
+    table.cell(signal_table, 3, 5, "", text_color=color.gray)
+    
+    table.cell(signal_table, 0, 6, "4小时", text_color=color.white)
+    table.cell(signal_table, 1, 6, bull_4h ? "买" : bear_4h ? "卖" : "中", 
+               text_color=bull_4h ? color.green : bear_4h ? color.red : color.gray)
+    table.cell(signal_table, 2, 6, str.tostring(weight_4h, "#.0"), text_color=color.yellow)
+    table.cell(signal_table, 3, 6, "", text_color=color.gray)
+    
+    table.cell(signal_table, 0, 7, "日线", text_color=color.white)
+    table.cell(signal_table, 1, 7, bull_1d ? "买" : bear_1d ? "卖" : "中", 
+               text_color=bull_1d ? color.green : bear_1d ? color.red : color.gray)
+    table.cell(signal_table, 2, 7, str.tostring(weight_1d, "#.0"), text_color=color.yellow)
+    table.cell(signal_table, 3, 7, "", text_color=color.gray)
+    
+    // 修改：使用持续趋势状态显示
+    table.cell(signal_table, 0, 8, "趋势确认", text_color=color.white)
+    table.cell(signal_table, 1, 8, table_trend_display, 
+               text_color=table_trend_color)
+    table.cell(signal_table, 2, 8, str.tostring(trend_weight, "#.0"), text_color=color.yellow)
+    table.cell(signal_table, 3, 8, "", text_color=color.gray)
+    
+    table.cell(signal_table, 0, 9, "成交量", text_color=color.white)
+    table.cell(signal_table, 1, 9, volume_signal_bull ? "放量" : "正常", 
+               text_color=volume_signal_bull ? color.green : color.gray)
+    table.cell(signal_table, 2, 9, str.tostring(volume_weight, "#.0"), text_color=color.yellow)
+    table.cell(signal_table, 3, 9, "", text_color=color.gray)
+    
+    table.cell(signal_table, 0, 10, "ADX强度", text_color=color.white)
+    table.cell(signal_table, 1, 10, str.tostring(adx, "#.1"), 
+               text_color=trend_strength ? color.green : color.orange)
+    table.cell(signal_table, 2, 10, trend_strength ? "强" : "弱", 
+               text_color=trend_strength ? color.green : color.orange)
+    table.cell(signal_table, 3, 10, "", text_color=color.gray)
+    
+    table.cell(signal_table, 0, 11, "信号状态", text_color=color.white)
+    table.cell(signal_table, 1, 11, last_signal_type == 1 ? "买入" : last_signal_type == -1 ? "卖出" : "无", 
+               text_color=last_signal_type == 1 ? color.green : last_signal_type == -1 ? color.red : color.gray)
+    table.cell(signal_table, 2, 11, show_signal ? "转换信号" : "持续", 
+               text_color=show_signal ? color.orange : color.gray)
+    table.cell(signal_table, 3, 11, "", text_color=color.gray)
+    
+    table.cell(signal_table, 0, 12, "强度", text_color=color.white, bgcolor=color.new(color.navy, 50))
+    table.cell(signal_table, 1, 12, enable_weight ? str.tostring(final_bull_signals, "#.1") + "/" + str.tostring(final_bear_signals, "#.1") : str.tostring(bull_raw_signals) + "/" + str.tostring(bear_raw_signals), 
+               text_color=final_bull_signals > final_bear_signals ? color.green : color.red, bgcolor=color.new(color.navy, 50))
+    table.cell(signal_table, 2, 12, enable_weight ? "加权" : "等权", text_color=color.orange, bgcolor=color.new(color.navy, 50))
+    table.cell(signal_table, 3, 12, "", text_color=color.gray, bgcolor=color.new(color.navy, 50))
+    
+    // ATR止损止盈信息显示
+    table.cell(signal_table, 0, 13, "ATR值", text_color=color.white)
+    table.cell(signal_table, 1, 13, str.tostring(atr_value, "#.4"), text_color=color.orange)
+    table.cell(signal_table, 2, 13, "当前", text_color=color.yellow)
+    table.cell(signal_table, 3, 13, signal_active ? "激活" : "未激活", 
+               text_color=signal_active ? color.green : color.gray)
+    
+    table.cell(signal_table, 0, 14, "止损止盈", text_color=color.white, bgcolor=color.new(color.purple, 50))
+    table.cell(signal_table, 1, 14, signal_active ? str.tostring(signal_stop_loss, "#.4") : "N/A", 
+               text_color=signal_active ? color.red : color.gray, bgcolor=color.new(color.purple, 50))
+    table.cell(signal_table, 2, 14, signal_active ? str.tostring(signal_take_profit, "#.4") : "N/A", 
+               text_color=signal_active ? color.green : color.gray, bgcolor=color.new(color.purple, 50))
+    table.cell(signal_table, 3, 14, signal_active ? (current_signal_type == "buy" ? "买入" : "卖出") : "无信号", 
+               text_color=signal_active ? (current_signal_type == "buy" ? color.green : color.red) : color.gray, bgcolor=color.new(color.purple, 50))
+
+// ═══════════════════════════════════════════════════════════════════════════════════
+// 权重信息显示
+// ═══════════════════════════════════════════════════════════════════════════════════
+
+if barstate.islast and show_weights and enable_weight
+    var label weights_label = label.new(
+         bar_index, 
+         high, 
+         "智能权重系统启用\n" +
+         "1m:" + str.tostring(weight_1m, "#.1") + " | " +
+         "5m:" + str.tostring(weight_5m, "#.1") + " | " + 
+         "15m:" + str.tostring(weight_15m, "#.1") + " | " +
+         "30m:" + str.tostring(weight_30m, "#.1") + "\n" +
+         "1h:" + str.tostring(weight_1h, "#.1") + " | " +
+         "4h:" + str.tostring(weight_4h, "#.1") + " | " +
+         "1D:" + str.tostring(weight_1d, "#.1") + " | " +
+         "趋势:" + str.tostring(trend_weight, "#.1") + " | " +
+         "成交量:" + str.tostring(volume_weight, "#.1"),
+         color=color.new(color.blue, 90), 
+         textcolor=color.white, 
+         style=label.style_label_center, 
+         yloc=yloc.abovebar
+     )
+    label.set_x(weights_label, bar_index - 10)
+
+// ═══════════════════════════════════════════════════════════════════════════════════
+// 警报
+// ═══════════════════════════════════════════════════════════════════════════════════
+alertcondition(strong_buy, title="强买信号", message="多时间框架强买信号触发！强度: {{plot_0}}")
+alertcondition(strong_sell, title="强卖信号", message="多时间框架强卖信号触发！强度: {{plot_1}}")
