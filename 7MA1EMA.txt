@@ -1,0 +1,52 @@
+//@version=4
+study(title="Moving Average", shorttitle="MA", overlay=true, resolution="")
+
+
+len = input(5, minval=1, title="Length")
+src = input(close, title="Source")
+offset = input(title="Offset", type=input.integer, defval=0, minval=-500, maxval=500)
+out = sma(src, len)
+plot(out, color=color.blue, title="MA", offset=offset)
+
+len1 = input(10, minval=1, title="Length")
+src1 = input(close, title="Source")
+offset1 = input(title="Offset1", type=input.integer, defval=0, minval=-500, maxval=500)
+out1 = sma(src1, len1)
+plot(out1, color=color.red, title="MA1", offset=offset1)
+
+len2 = input(20, minval=1, title="Length")
+src2 = input(close, title="Source")
+offset2 = input(title="Offset2", type=input.integer, defval=0, minval=-500, maxval=500)
+out2 = sma(src2, len2)
+plot(out2, color=color.yellow, title="MA2", offset=offset2)
+
+len3 = input(30, minval=1, title="Length")
+src3 = input(close, title="Source")
+offset3 = input(title="Offset3", type=input.integer, defval=0, minval=-500, maxval=500)
+out3 = sma(src3, len3)
+plot(out3, color=color.green, title="MA3", offset=offset3)
+
+len4 = input(60, minval=1, title="Length")
+src4 = input(close, title="Source")
+offset4 = input(title="Offset4", type=input.integer, defval=0, minval=-500, maxval=500)
+out4 = sma(src4, len4)
+plot(out4, color=color.fuchsia, title="MA4", offset=offset4)
+
+len5 = input(120, minval=1, title="Length")
+src5 = input(close, title="Source")
+offset5 = input(title="Offset5", type=input.integer, defval=0, minval=-500, maxval=500)
+out5 = sma(src5, len5)
+plot(out5, color=color.silver, title="MA5", offset=offset5)
+
+len6 = input(200, minval=1, title="Length")
+src6 = input(close, title="Source")
+offset6 = input(title="Offset6", type=input.integer, defval=0, minval=-500, maxval=500)
+out6 = sma(src6, len6)
+plot(out6, color=color.orange, title="MA6", offset=offset6)
+
+
+len7 = input(20, minval=1, title="Length")
+src7 = input(close, title="Source")
+offset7 = input(title="Offset7", type=input.integer, defval=0, minval=-500, maxval=500)
+out7 = ema(src7, len7)
+plot(out7, title="EMA7", color=color.blue, offset=offset7)
