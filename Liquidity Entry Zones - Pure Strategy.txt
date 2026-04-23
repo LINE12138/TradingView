@@ -1,0 +1,273 @@
+//@version=6
+strategy(
+    title="Liquidity Entry Zones - Pure Strategy",
+    shorttitle="LEZ-Strategy",
+    overlay=true,
+    initial_capital=10000,
+    default_qty_type=strategy.cash,
+    default_qty_value=1000,
+    commission_type=strategy.commission.percent,
+    commission_value=0.1,
+    pyramiding=0
+)
+
+// ============================================================================
+// INPUTS
+// ============================================================================
+groupTrend    = "Trend Filter"
+groupPip      = "Pip Settings"
+groupSweep    = "Liquidity Sweep Detection"
+groupQuality  = "Candle Quality Filters"
+groupConfirm  = "Entry Confirmation"
+groupSim      = "Trade Management"
+
+localEmaLength    = input.int(169, "EMA Length", minval=1, group=groupTrend)
+useLocalEmaFilter = input.bool(true, "Use EMA Trend Filter", group=groupTrend)
+
+pipPreset = input.string("Indices / CFD", "Pip Mode", options=["Auto Detect", "FX 5-Digit", "FX JPY", "XAUUSD / Gold", "Indices / CFD"], group=groupPip)
+
+pivotLength      = input.int(2, "Swing Pivot Length", minval=1, group=groupSweep)
+storedLevels     = input.int(5, "Stored Liquidity Levels", minval=5, maxval=100, group=groupSweep)
+minSweepDistance = input.int(5, "Minimum Sweep Distance (Pips)", minval=1, group=groupSweep)
+reclaimRule      = input.string("Strong Reclaim", "Reclaim Rule", options=["Close Back Inside", "Strong Reclaim"], group=groupSweep)
+
+minWickPercent     = input.float(0.50, "Minimum Sweep Wick %", minval=0.0, maxval=1.0, step=0.01, group=groupQuality)
+maxBodyPercent     = input.float(0.50, "Maximum Body %", minval=0.05, maxval=1.0, step=0.01, group=groupQuality)
+minCandleRangePips = input.int(10, "Minimum Candle Range (Pips)", minval=1, group=groupQuality)
+requireBullishBody = input.bool(true, "Long Confirmation Must Be Bullish", group=groupQuality)
+requireBearishBody = input.bool(true, "Short Confirmation Must Be Bearish", group=groupQuality)
+
+confirmationWindow  = input.int(3, "Max Bars After Sweep For Confirmation", minval=0, maxval=10, group=groupConfirm)
+requireMidlineBreak = input.bool(true, "Require Sweep Candle Midline Break", group=groupConfirm)
+signalCooldownBars  = input.int(5, "Cooldown Bars Between Signals", minval=0, group=groupConfirm)
+
+useFixedPipsSLTP = input.bool(true, "Use Fixed Pips for SL/TP", group=groupSim)
+takeProfitPips   = input.int(150, "Take Profit (Pips)", minval=1, group=groupSim)
+stopLossPips     = input.int(160, "Stop Loss (Pips)", minval=1, group=groupSim)
+
+// ============================================================================
+// HELPERS
+// ============================================================================
+f_is_jpy_pair() =>
+    str.contains(str.upper(syminfo.ticker), "JPY")
+
+f_is_xau_symbol() =>
+    str.contains(str.upper(syminfo.ticker), "XAU")
+
+f_get_pip_size(_preset) =>
+    float _pip = na
+    if _preset == "FX 5-Digit"
+        _pip := 0.000001
+    else if _preset == "FX JPY"
+        _pip := 0.0001
+    else if _preset == "XAUUSD / Gold"
+        _pip := 0.01
+    else if _preset == "Indices / CFD"
+        _pip := syminfo.mintick
+    else
+        _pip := f_is_xau_symbol() ? 0.01 : syminfo.type == "forex" ? (f_is_jpy_pair() ? 0.01 : 0.0001) : syminfo.mintick
+    _pip
+
+f_clamp(_value, _min, _max) =>
+    math.max(_min, math.min(_max, _value))
+
+// ============================================================================
+// CORE SERIES
+// ============================================================================
+localEma = ta.ema(close, localEmaLength)
+pipSize  = f_get_pip_size(pipPreset)
+
+candleRange = high - low
+candleBody  = math.abs(close - open)
+upperWick   = high - math.max(open, close)
+lowerWick   = math.min(open, close) - low
+
+bodyPercent      = candleRange > 0 ? candleBody / candleRange : 0.0
+upperWickPercent = candleRange > 0 ? upperWick / candleRange : 0.0
+lowerWickPercent = candleRange > 0 ? lowerWick / candleRange : 0.0
+
+candleRangePips    = pipSize > 0 ? candleRange / pipSize : 0.0
+takeProfitDistance = takeProfitPips * pipSize
+stopLossDistance   = stopLossPips * pipSize
+minSweepDistancePx = minSweepDistance * pipSize
+minRangeDistancePx = minCandleRangePips * pipSize
+
+// ============================================================================
+// PIVOTS AND LIQUIDITY STORAGE
+// ============================================================================
+pivotHigh = ta.pivothigh(high, pivotLength, pivotLength)
+pivotLow  = ta.pivothigh(low, pivotLength, pivotLength)
+
+var float[] storedHighLevels = array.new_float()
+var int[]   storedHighBars   = array.new_int()
+var float[] storedLowLevels  = array.new_float()
+var int[]   storedLowBars    = array.new_int()
+
+if not na(pivotHigh)
+    array.push(storedHighLevels, pivotHigh)
+    array.push(storedHighBars, bar_index - pivotLength)
+    if array.size(storedHighLevels) > storedLevels
+        array.shift(storedHighLevels)
+        array.shift(storedHighBars)
+
+if not na(pivotLow)
+    array.push(storedLowLevels, pivotLow)
+    array.push(storedLowBars, bar_index - pivotLength)
+    if array.size(storedLowLevels) > storedLevels
+        array.shift(storedLowLevels)
+        array.shift(storedLowBars)
+
+// ============================================================================
+// FIND MOST RECENT SWEPT LEVEL
+// ============================================================================
+float sweptHighLevel = na
+int   sweptHighBar   = na
+float sweptLowLevel  = na
+int   sweptLowBar    = na
+
+int highLevelCount = array.size(storedHighLevels)
+if highLevelCount > 0
+    for i = highLevelCount - 1 to 0
+        float highLevel = array.get(storedHighLevels, i)
+        int   highBar   = array.get(storedHighBars, i)
+        if highBar < bar_index and high > highLevel and (high - highLevel) >= minSweepDistancePx
+            sweptHighLevel := highLevel
+            sweptHighBar   := highBar
+            break
+
+int lowLevelCount = array.size(storedLowLevels)
+if lowLevelCount > 0
+    for i = lowLevelCount - 1 to 0
+        float lowLevel = array.get(storedLowLevels, i)
+        int   lowBar   = array.get(storedLowBars, i)
+        if lowBar < bar_index and low < lowLevel and (lowLevel - low) >= minSweepDistancePx
+            sweptLowLevel := lowLevel
+            sweptLowBar   := lowBar
+            break
+
+// ============================================================================
+// SWEEP VALIDATION
+// ============================================================================
+bearishReclaim =
+     not na(sweptHighLevel) and
+     (
+         reclaimRule == "Close Back Inside" ?
+         close < sweptHighLevel :
+         close < sweptHighLevel and close < (high + low) / 2.0
+     )
+
+bullishReclaim =
+     not na(sweptLowLevel) and
+     (
+         reclaimRule == "Close Back Inside" ?
+         close > sweptLowLevel :
+         close > sweptLowLevel and close > (high + low) / 2.0
+     )
+
+validSellSweep =
+     not na(sweptHighLevel) and
+     bearishReclaim and
+     upperWickPercent >= minWickPercent and
+     bodyPercent <= maxBodyPercent and
+     candleRange >= minRangeDistancePx
+
+validBuySweep =
+     not na(sweptLowLevel) and
+     bullishReclaim and
+     lowerWickPercent >= minWickPercent and
+     bodyPercent <= maxBodyPercent and
+     candleRange >= minRangeDistancePx
+
+// ============================================================================
+// STORE PENDING SWEEP EVENTS
+// ============================================================================
+var int   pendingBullSweepBar = na
+var float pendingBullHigh     = na
+var float pendingBullLow      = na
+var float pendingBullMid      = na
+
+var int   pendingBearSweepBar = na
+var float pendingBearHigh     = na
+var float pendingBearLow      = na
+var float pendingBearMid      = na
+
+bullEmaOkForSweep = not useLocalEmaFilter or close > localEma
+bearEmaOkForSweep = not useLocalEmaFilter or close < localEma
+bullMidOkNow      = not requireMidlineBreak or close > (high + low) / 2.0
+bearMidOkNow      = not requireMidlineBreak or close < (high + low) / 2.0
+
+if validBuySweep
+    pendingBullSweepBar := bar_index
+    pendingBullHigh     := high
+    pendingBullLow      := low
+    pendingBullMid      := (high + low) / 2.0
+
+if validSellSweep
+    pendingBearSweepBar := bar_index
+    pendingBearHigh     := high
+    pendingBearLow      := low
+    pendingBearMid      := (high + low) / 2.0
+
+bullWindowOpen = not na(pendingBullSweepBar) and (bar_index - pendingBullSweepBar <= confirmationWindow)
+bearWindowOpen = not na(pendingBearSweepBar) and (bar_index - pendingBearSweepBar <= confirmationWindow)
+
+// ============================================================================
+// CONFIRMATION LOGIC
+// ============================================================================
+localLongOk  = not useLocalEmaFilter or close > localEma
+localShortOk = not useLocalEmaFilter or close < localEma
+bullBodyOk   = not requireBullishBody or close > open
+bearBodyOk   = not requireBearishBody or close < open
+bullMidOk    = not requireMidlineBreak or close > pendingBullMid
+bearMidOk    = not requireMidlineBreak or close < pendingBearMid
+
+buyConfirmed =
+     bullWindowOpen and
+     bullBodyOk and
+     localLongOk and
+     bullMidOk
+
+sellConfirmed =
+     bearWindowOpen and
+     bearBodyOk and
+     localShortOk and
+     bearMidOk
+
+// ============================================================================
+// SIGNAL COOLDOWN & STRATEGY EXECUTION
+// ============================================================================
+var int lastSignalBar = na
+cooldownPassed = na(lastSignalBar) or (bar_index - lastSignalBar > signalCooldownBars)
+
+buySignal  = buyConfirmed and cooldownPassed
+sellSignal = sellConfirmed and cooldownPassed and not buySignal
+
+// 策略执行逻辑
+if (buySignal)
+    lastSignalBar := bar_index
+    if (useFixedPipsSLTP)
+        strategy.entry("LEZ-Long", strategy.long)
+        strategy.exit("LEZ-Exit-Long", "LEZ-Long", limit=close + takeProfitDistance, stop=close - stopLossDistance)
+    else
+        strategy.entry("LEZ-Long", strategy.long)
+
+if (sellSignal)
+    lastSignalBar := bar_index
+    if (useFixedPipsSLTP)
+        strategy.entry("LEZ-Short", strategy.short)
+        strategy.exit("LEZ-Exit-Short", "LEZ-Short", limit=close - takeProfitDistance, stop=close + stopLossDistance)
+    else
+        strategy.entry("LEZ-Short", strategy.short)
+
+// 清理过期的pending信号
+if buySignal or (not na(pendingBullSweepBar) and bar_index - pendingBullSweepBar > confirmationWindow)
+    pendingBullSweepBar := na
+    pendingBullHigh     := na
+    pendingBullLow      := na
+    pendingBullMid      := na
+
+if sellSignal or (not na(pendingBearSweepBar) and bar_index - pendingBearSweepBar > confirmationWindow)
+    pendingBearSweepBar := na
+    pendingBearHigh     := na
+    pendingBearLow      := na
+    pendingBearMid      := na
